@@ -1,0 +1,39 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find project (unzip if uploaded as a zip)
+        run: |
+          if ls ./*.zip >/dev/null 2>&1; then
+            unzip -q -o ./*.zip -d project
+          fi
+          GR=$(find . -name gradlew -not -path './.git/*' | head -1)
+          echo "Project folder: $(dirname "$GR")"
+          echo "APPDIR=$(dirname "$GR")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build release APK
+        working-directory: ${{ env.APPDIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BrilliantLauncher-apk
+          path: ${{ env.APPDIR }}/app/build/outputs/apk/release/*.apk
+          
