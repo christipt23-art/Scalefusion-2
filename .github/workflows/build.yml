@@ -8,24 +8,51 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Find project (unzip if uploaded as a zip)
+        shell: bash
         run: |
-          if ls ./*.zip >/dev/null 2>&1; then
+          set -e
+
+          if compgen -G "./*.zip" > /dev/null; then
+            mkdir -p project
             unzip -q -o ./*.zip -d project
           fi
-          GR=$(find . -name gradlew -not -path './.git/*' | head -1)
-          echo "Project folder: $(dirname "$GR")"
-          echo "APPDIR=$(dirname "$GR")" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-java@v4
+          GR="$(find . -name gradlew \
+            -not -path './.git/*' \
+            -not -path './.gradle/*' \
+            -type f | head -n 1)"
+
+          if [ -z "$GR" ]; then
+            echo "::error::gradlew not found. Check your repository or ZIP file."
+            exit 1
+          fi
+
+          APPDIR="$(dirname "$GR")"
+          echo "Project folder: $APPDIR"
+          echo "APPDIR=$APPDIR" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: |
+          set -o pipefail
+          yes | sdkmanager --licenses
 
       - name: Build release APK
         working-directory: ${{ env.APPDIR }}
@@ -33,8 +60,10 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: BrilliantLauncher-apk
           path: ${{ env.APPDIR }}/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
           
