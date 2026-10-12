@@ -24,12 +24,12 @@ jobs:
           fi
 
           GR="$(find . -name gradlew \
+            -type f \
             -not -path './.git/*' \
-            -not -path './.gradle/*' \
-            -type f | head -n 1)"
+            -not -path './.gradle/*' | head -n 1)"
 
           if [ -z "$GR" ]; then
-            echo "::error::gradlew not found. Check your repository or ZIP file."
+            echo "::error::gradlew not found"
             exit 1
           fi
 
@@ -44,15 +44,9 @@ jobs:
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          accept-android-sdk-licenses: false
-
-      - name: Accept Android SDK licenses
-        shell: bash
-        run: |
-          set -o pipefail
-          yes | sdkmanager --licenses
+          packages: 'platform-tools'
 
       - name: Build release APK
         working-directory: ${{ env.APPDIR }}
